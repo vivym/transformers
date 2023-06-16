@@ -42,6 +42,7 @@ IMAGE_PROCESSOR_MAPPING_NAMES = OrderedDict(
         ("bit", "BitImageProcessor"),
         ("blip", "BlipImageProcessor"),
         ("blip-2", "BlipImageProcessor"),
+        ("openflamingo", "BlipImageProcessor"),
         ("bridgetower", "BridgeTowerImageProcessor"),
         ("chinese_clip", "ChineseCLIPImageProcessor"),
         ("clip", "CLIPImageProcessor"),

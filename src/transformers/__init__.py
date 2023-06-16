@@ -196,6 +196,13 @@ _import_structure = {
         "Blip2QFormerConfig",
         "Blip2VisionConfig",
     ],
+    "models.openflamingo": [
+        "OPENFLAMINGO_PRETRAINED_CONFIG_ARCHIVE_MAP",
+        "OpenFlamingoConfig",
+       
+        "OpenFlamingoQFormerConfig",
+        "OpenFlamingoVisionConfig",
+    ],
     "models.bloom": ["BLOOM_PRETRAINED_CONFIG_ARCHIVE_MAP", "BloomConfig"],
     "models.bort": [],
     "models.bridgetower": [
@@ -1212,6 +1219,16 @@ else:
             "Blip2PreTrainedModel",
             "Blip2QFormerModel",
             "Blip2VisionModel",
+        ]
+    )
+    _import_structure["models.openflamingo"].extend(
+        [
+            "OPENFLAMINGO_PRETRAINED_MODEL_ARCHIVE_LIST",
+            "OpenFlamingoForConditionalGeneration",
+            "OpenFlamingoModel",
+            "OpenFlamingoPreTrainedModel",
+            "OpenFlamingoQFormerModel",
+            "OpenFlamingoVisionModel",
         ]
     )
     _import_structure["models.bloom"].extend(
@@ -3974,6 +3991,13 @@ if TYPE_CHECKING:
         Blip2QFormerConfig,
         Blip2VisionConfig,
     )
+    from .models.openflamingo import (
+        OPENFLAMINGO_PRETRAINED_CONFIG_ARCHIVE_MAP,
+        OpenFlamingoConfig,
+       
+        OpenFlamingoQFormerConfig,
+        OpenFlamingoVisionConfig,
+    )
     from .models.bloom import BLOOM_PRETRAINED_CONFIG_ARCHIVE_MAP, BloomConfig
     from .models.bridgetower import (
         BRIDGETOWER_PRETRAINED_CONFIG_ARCHIVE_MAP,
@@ -4874,6 +4898,14 @@ if TYPE_CHECKING:
             Blip2PreTrainedModel,
             Blip2QFormerModel,
             Blip2VisionModel,
+        )
+        from .models.openflamingo import (
+            OPENFLAMINGO_PRETRAINED_MODEL_ARCHIVE_LIST,
+            OpenFlamingoForConditionalGeneration,
+            OpenFlamingoModel,
+            OpenFlamingoPreTrainedModel,
+            OpenFlamingoQFormerModel,
+            OpenFlamingoVisionModel,
         )
         from .models.bloom import (
             BLOOM_PRETRAINED_MODEL_ARCHIVE_LIST,
