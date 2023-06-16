@@ -14,6 +14,8 @@
 # limitations under the License.
 """ Testing suite for the TensorFlow Data2VecVision model. """
 
+from __future__ import annotations
+
 import collections.abc
 import inspect
 import unittest
@@ -237,10 +239,6 @@ class TFData2VecVisionModelTest(TFModelTesterMixin, PipelineTesterMixin, unittes
     def test_for_image_segmentation(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs()
         self.model_tester.create_and_check_for_image_segmentation(*config_and_inputs)
-
-    @unittest.skip("Test was written for TF 1.x and isn't really relevant here")
-    def test_compile_tf_model(self):
-        pass
 
     def test_attention_outputs(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()

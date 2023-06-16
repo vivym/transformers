@@ -14,6 +14,8 @@
 # limitations under the License.
 """ Testing suite for the TensorFlow SegFormer model. """
 
+from __future__ import annotations
+
 import inspect
 import unittest
 from typing import List, Tuple
@@ -182,10 +184,6 @@ class TFSegformerModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.Tes
 
     @unittest.skip("SegFormer does not have get_input_embeddings method and get_output_embeddings methods")
     def test_model_common_attributes(self):
-        pass
-
-    @unittest.skip("Test was written for TF 1.x and isn't really relevant here")
-    def test_compile_tf_model(self):
         pass
 
     def test_forward_signature(self):

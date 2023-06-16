@@ -14,6 +14,8 @@
 # limitations under the License.
 
 
+from __future__ import annotations
+
 import unittest
 
 from transformers import FunnelConfig, is_tf_available
@@ -386,10 +388,6 @@ class TFFunnelModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCa
 
     @tooslow
     def test_saved_model_creation(self):
-        pass
-
-    def test_compile_tf_model(self):
-        # This test fails the CI. TODO Lysandre re-enable it
         pass
 
 
