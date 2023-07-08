@@ -82,15 +82,30 @@ if is_torch_available():
 
     # Fake pretrained models for tests
     class BaseModel(PreTrainedModel):
+        base_model_prefix = "base"
         config_class = PretrainedConfig
 
         def __init__(self, config):
             super().__init__(config)
-            self.linear = nn.Linear(4, 5)
-            self.linear_2 = nn.Linear(5, 6)
+            self.linear = nn.Linear(5, 5)
+            self.linear_2 = nn.Linear(5, 5)
 
         def forward(self, x):
             return self.linear_2(self.linear(x))
+
+    class BaseModelWithTiedWeights(PreTrainedModel):
+        config_class = PretrainedConfig
+
+        def __init__(self, config):
+            super().__init__(config)
+            self.linear = nn.Linear(5, 5)
+            self.linear_2 = nn.Linear(5, 5)
+
+        def forward(self, x):
+            return self.linear_2(self.linear(x))
+
+        def tie_weights(self):
+            self.linear_2.weight = self.linear.weight
 
     class ModelWithHead(PreTrainedModel):
         base_model_prefix = "base"
@@ -103,11 +118,29 @@ if is_torch_available():
             super().__init__(config)
             self.base = BaseModel(config)
             # linear is a common name between Base and Head on purpose.
-            self.linear = nn.Linear(6, 3)
-            self.linear2 = nn.Linear(3, 5)
+            self.linear = nn.Linear(5, 5)
+            self.linear2 = nn.Linear(5, 5)
 
         def forward(self, x):
             return self.linear2(self.linear(self.base(x)))
+
+    class ModelWithHeadAndTiedWeights(PreTrainedModel):
+        base_model_prefix = "base"
+        config_class = PretrainedConfig
+
+        def _init_weights(self, module):
+            pass
+
+        def __init__(self, config):
+            super().__init__(config)
+            self.base = BaseModel(config)
+            self.decoder = nn.Linear(5, 5)
+
+        def forward(self, x):
+            return self.decoder(self.base(x))
+
+        def tie_weights(self):
+            self.decoder.weight = self.base.linear.weight
 
 
 TINY_T5 = "patrickvonplaten/t5-tiny-random"
@@ -467,8 +500,8 @@ class ModelUtilsTest(TestCasePlus):
             self.assertTrue(os.path.isfile(weights_index_file))
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, WEIGHTS_INDEX_NAME)))
 
-            for i in range(1, 6):
-                weights_name = ".".join(WEIGHTS_NAME.split(".")[:-1] + [f"v2-0000{i}-of-00006"] + ["bin"])
+            for i in range(1, 5):
+                weights_name = ".".join(WEIGHTS_NAME.split(".")[:-1] + [f"v2-0000{i}-of-00005"] + ["bin"])
                 weights_name_file = os.path.join(tmp_dir, weights_name)
                 self.assertTrue(os.path.isfile(weights_name_file))
 
@@ -513,8 +546,8 @@ class ModelUtilsTest(TestCasePlus):
             self.assertTrue(os.path.isfile(weights_index_file))
             self.assertFalse(os.path.isfile(os.path.join(tmp_dir, SAFE_WEIGHTS_INDEX_NAME)))
 
-            for i in range(1, 6):
-                weights_name = ".".join(SAFE_WEIGHTS_NAME.split(".")[:-1] + [f"v2-0000{i}-of-00006"] + ["safetensors"])
+            for i in range(1, 5):
+                weights_name = ".".join(SAFE_WEIGHTS_NAME.split(".")[:-1] + [f"v2-0000{i}-of-00005"] + ["safetensors"])
                 weights_name_file = os.path.join(tmp_dir, weights_name)
                 self.assertTrue(os.path.isfile(weights_name_file))
 
@@ -856,6 +889,130 @@ class ModelUtilsTest(TestCasePlus):
                 ValueError, "The state dictionary of the model you are trying to load is corrupted."
             ):
                 _ = ModelWithHead.from_pretrained(tmp_dir)
+
+    def test_tied_weights_reload(self):
+        # Base
+        model = BaseModelWithTiedWeights(PretrainedConfig())
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model.save_pretrained(tmp_dir)
+
+            new_model = BaseModelWithTiedWeights.from_pretrained(tmp_dir)
+            self.assertIs(new_model.linear.weight, new_model.linear_2.weight)
+
+            state_dict = model.state_dict()
+            # Remove tied weight from state_dict -> model should load with no complain of missing keys
+            del state_dict["linear_2.weight"]
+            torch.save(state_dict, os.path.join(tmp_dir, WEIGHTS_NAME))
+            new_model, load_info = BaseModelWithTiedWeights.from_pretrained(tmp_dir, output_loading_info=True)
+            self.assertListEqual(load_info["missing_keys"], [])
+            self.assertIs(new_model.linear.weight, new_model.linear_2.weight)
+
+            # With head
+            model.save_pretrained(tmp_dir)
+            new_model, load_info = ModelWithHeadAndTiedWeights.from_pretrained(tmp_dir, output_loading_info=True)
+            self.assertIs(new_model.base.linear.weight, new_model.decoder.weight)
+            # Should only complain about the missing bias
+            self.assertListEqual(load_info["missing_keys"], ["decoder.bias"])
+
+    def test_unexpected_keys_warnings(self):
+        model = ModelWithHead(PretrainedConfig())
+        logger = logging.get_logger("transformers.modeling_utils")
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            model.save_pretrained(tmp_dir)
+
+            # Loading the model with a new class, we don't get a warning for unexpected weights, just an info
+            with CaptureLogger(logger) as cl:
+                _, loading_info = BaseModel.from_pretrained(tmp_dir, output_loading_info=True)
+            self.assertNotIn("were not used when initializing ModelWithHead", cl.out)
+            self.assertEqual(
+                set(loading_info["unexpected_keys"]),
+                {"linear.weight", "linear.bias", "linear2.weight", "linear2.bias"},
+            )
+
+            # Loading the model with the same class, we do get a warning for unexpected weights
+            state_dict = model.state_dict()
+            state_dict["added_key"] = state_dict["linear.weight"]
+            torch.save(state_dict, os.path.join(tmp_dir, WEIGHTS_NAME))
+            with CaptureLogger(logger) as cl:
+                _, loading_info = ModelWithHead.from_pretrained(tmp_dir, output_loading_info=True)
+            self.assertIn("were not used when initializing ModelWithHead: ['added_key']", cl.out)
+            self.assertEqual(loading_info["unexpected_keys"], ["added_key"])
+
+    def test_warn_if_padding_and_no_attention_mask(self):
+        logger = logging.get_logger("transformers.modeling_utils")
+
+        with self.subTest("Ensure no warnings when pad_token_id is None."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config_no_pad_token = PretrainedConfig()
+                config_no_pad_token.pad_token_id = None
+                model = ModelWithHead(config_no_pad_token)
+                input_ids = torch.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 0, 0]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+            self.assertNotIn("We strongly recommend passing in an `attention_mask`", cl.out)
+
+        with self.subTest("Ensure no warnings when there is an attention_mask."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config = PretrainedConfig()
+                config.pad_token_id = 0
+                model = ModelWithHead(config)
+                input_ids = torch.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 0, 0]])
+                attention_mask = torch.tensor([[1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask)
+            self.assertNotIn("We strongly recommend passing in an `attention_mask`", cl.out)
+
+        with self.subTest("Ensure no warnings when there are no pad_token_ids in the input_ids."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config = PretrainedConfig()
+                config.pad_token_id = 0
+                model = ModelWithHead(config)
+                input_ids = torch.tensor([[1, 345, 232, 328, 740, 140, 1695, 69, 6078, 2341, 25]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+            self.assertNotIn("We strongly recommend passing in an `attention_mask`", cl.out)
+
+        with self.subTest("Ensure a warning is shown when the input_ids start with a pad_token_id."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config = PretrainedConfig()
+                config.pad_token_id = 0
+                model = ModelWithHead(config)
+                input_ids = torch.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 432, 5232]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+            self.assertIn("We strongly recommend passing in an `attention_mask`", cl.out)
+
+        with self.subTest("Ensure a warning is shown when the input_ids end with a pad_token_id."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config = PretrainedConfig()
+                config.pad_token_id = 0
+                model = ModelWithHead(config)
+                input_ids = torch.tensor([[432, 345, 232, 328, 740, 140, 1695, 69, 6078, 0, 0]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+            self.assertIn("We strongly recommend passing in an `attention_mask`", cl.out)
+
+        with self.subTest("Ensure that the warning is shown at most once."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config = PretrainedConfig()
+                config.pad_token_id = 0
+                model = ModelWithHead(config)
+                input_ids = torch.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 0, 0]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+            self.assertEqual(cl.out.count("We strongly recommend passing in an `attention_mask`"), 1)
+
+        with self.subTest("Ensure a different warning is shown when the pad_token_id is equal to the bos_token_id."):
+            logger.warning_once.cache_clear()
+            with CaptureLogger(logger) as cl:
+                config = PretrainedConfig()
+                config.pad_token_id = 0
+                config.bos_token_id = config.pad_token_id
+                model = ModelWithHead(config)
+                input_ids = torch.tensor([[0, 345, 232, 328, 740, 140, 1695, 69, 6078, 0, 0]])
+                model.warn_if_padding_and_no_attention_mask(input_ids, attention_mask=None)
+            self.assertIn("You may ignore this warning if your `pad_token_id`", cl.out)
 
     @require_torch_gpu
     @slow

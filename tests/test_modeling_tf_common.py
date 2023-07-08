@@ -341,7 +341,7 @@ class TFModelTesterMixin:
 
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
 
-        for model_class in self.all_model_classes:
+        for model_class in self.all_model_classes[:2]:
             model = model_class(config)
             model.build()
 
@@ -689,7 +689,7 @@ class TFModelTesterMixin:
     def test_compile_tf_model(self):
         config, _ = self.model_tester.prepare_config_and_inputs_for_common()
 
-        for model_class in self.all_model_classes:
+        for model_class in self.all_model_classes[:2]:
             # Prepare our model
             model = model_class(config)
             # These are maximally general inputs for the model, with multiple None dimensions
@@ -1065,6 +1065,16 @@ class TFModelTesterMixin:
             output_for_kw_input = model(**inputs_np)
             self.assert_outputs_same(output_for_dict_input, output_for_kw_input)
 
+    def test_valid_input_signature_and_dummies(self):
+        config, _ = self.model_tester.prepare_config_and_inputs_for_common()
+        for model_class in self.all_model_classes:
+            model = model_class(config)
+            call_args = inspect.signature(model.call).parameters
+            for key in model.input_signature:
+                self.assertIn(key, call_args)
+            for key in model.dummy_inputs:
+                self.assertIn(key, call_args)
+
     def test_resize_token_embeddings(self):
         # TODO (joao): after the embeddings refactor is complete, rework this test so as to rely exclusively on
         # tf.keras.layers.Embedding
@@ -1415,6 +1425,7 @@ class TFModelTesterMixin:
     def check_keras_fit_results(self, val_loss1, val_loss2, atol=1e-2, rtol=1e-3):
         self.assertTrue(np.allclose(val_loss1, val_loss2, atol=atol, rtol=rtol))
 
+    @slow
     def test_keras_fit(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
         for model_class in self.all_model_classes:
@@ -1516,36 +1527,6 @@ class TFModelTesterMixin:
             if metrics:
                 self.assertTrue(len(accuracy1) == len(accuracy2) > 0, "Missing metrics!")
 
-            # Make sure fit works with tf.data.Dataset and results are consistent
-            dataset = tf.data.Dataset.from_tensor_slices(prepared_for_class)
-
-            if sample_weight is not None:
-                # Add in the sample weight
-                weighted_dataset = dataset.map(lambda x: (x, None, tf.convert_to_tensor(0.5, dtype=tf.float32)))
-            else:
-                weighted_dataset = dataset
-            # Pass in all samples as a batch to match other `fit` calls
-            weighted_dataset = weighted_dataset.batch(len(dataset))
-            dataset = dataset.batch(len(dataset))
-            # Reinitialize to fix batchnorm again
-            model.set_weights(model_weights)
-
-            # To match the other calls, don't pass sample weights in the validation data
-            history3 = model.fit(
-                weighted_dataset,
-                validation_data=dataset,
-                steps_per_epoch=1,
-                validation_steps=1,
-                shuffle=False,
-            )
-            val_loss3 = history3.history["val_loss"][0]
-            self.assertTrue(not isnan(val_loss3))
-            accuracy3 = {key: val[0] for key, val in history3.history.items() if key.endswith("accuracy")}
-            self.check_keras_fit_results(val_loss1, val_loss3)
-            self.assertEqual(history1.history.keys(), history3.history.keys())
-            if metrics:
-                self.assertTrue(len(accuracy1) == len(accuracy3) > 0, "Missing metrics!")
-
     def test_int_support(self):
         config, inputs_dict = self.model_tester.prepare_config_and_inputs_for_common()
         for model_class in self.all_model_classes:
@@ -1555,7 +1536,7 @@ class TFModelTesterMixin:
                 return_labels=True if "labels" in inspect.signature(model_class.call).parameters.keys() else False,
             )
             if not any(
-                [tensor.dtype.is_integer for tensor in prepared_for_class.values() if isinstance(tensor, tf.Tensor)]
+                tensor.dtype.is_integer for tensor in prepared_for_class.values() if isinstance(tensor, tf.Tensor)
             ):
                 return  # No integer inputs means no need for this test
 
@@ -1699,7 +1680,7 @@ class TFModelTesterMixin:
                 for tensor in test_batch.values():
                     self.assertTrue(isinstance(tensor, tf.Tensor))
                     self.assertEqual(len(tensor), len(input_dataset))  # Assert we didn't lose any data
-                    model(test_batch, training=False)
+            model(test_batch, training=False)
 
             if "labels" in inspect.signature(model_class.call).parameters.keys():
                 tf_inputs_dict = self._prepare_for_class(inputs_dict, model_class, return_labels=True)

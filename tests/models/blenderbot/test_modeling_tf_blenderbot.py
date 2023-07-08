@@ -19,7 +19,7 @@ from __future__ import annotations
 import unittest
 
 from transformers import BlenderbotConfig, BlenderbotTokenizer, is_tf_available
-from transformers.testing_utils import require_tf, require_tokenizers, slow, tooslow
+from transformers.testing_utils import require_tf, require_tokenizers, slow
 from transformers.utils import cached_property
 
 from ...test_configuration_common import ConfigTester
@@ -48,7 +48,7 @@ class TFBlenderbotModelTester:
         use_labels=False,
         vocab_size=99,
         hidden_size=32,
-        num_hidden_layers=5,
+        num_hidden_layers=2,
         num_attention_heads=4,
         intermediate_size=37,
         hidden_dropout_prob=0.1,
@@ -206,10 +206,6 @@ class TFBlenderbotModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.Te
     def test_decoder_model_past_large_inputs(self):
         config_and_inputs = self.model_tester.prepare_config_and_inputs_for_common()
         self.model_tester.check_decoder_model_past_large_inputs(*config_and_inputs)
-
-    @tooslow
-    def test_saved_model_creation(self):
-        pass
 
 
 @require_tokenizers

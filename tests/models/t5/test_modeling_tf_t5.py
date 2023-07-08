@@ -18,7 +18,7 @@ from __future__ import annotations
 import unittest
 
 from transformers import T5Config, is_tf_available
-from transformers.testing_utils import require_sentencepiece, require_tf, require_tokenizers, slow, tooslow
+from transformers.testing_utils import require_sentencepiece, require_tf, require_tokenizers, slow
 from transformers.utils import cached_property
 
 from ...test_configuration_common import ConfigTester
@@ -46,7 +46,7 @@ class TFT5ModelTester:
         self.vocab_size = 99
         self.n_positions = 14
         self.hidden_size = 32
-        self.num_hidden_layers = 5
+        self.num_hidden_layers = 2
         self.num_attention_heads = 4
         self.d_ff = 37
         self.relative_attention_num_buckets = 8
@@ -300,10 +300,6 @@ class TFT5ModelTest(TFModelTesterMixin, PipelineTesterMixin, unittest.TestCase):
 
         self.model_tester.create_and_check_t5_decoder_model_past_large_inputs(*config_and_inputs)
 
-    @tooslow
-    def test_saved_model_creation(self):
-        pass
-
     @slow
     def test_model_from_pretrained(self):
         model = TFT5Model.from_pretrained("t5-small")
@@ -329,7 +325,7 @@ class TFT5EncoderOnlyModelTester:
         # For common tests
         use_attention_mask=True,
         hidden_size=32,
-        num_hidden_layers=5,
+        num_hidden_layers=2,
         num_attention_heads=4,
         d_ff=37,
         relative_attention_num_buckets=8,

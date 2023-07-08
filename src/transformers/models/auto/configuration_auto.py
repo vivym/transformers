@@ -108,6 +108,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("ibert", "IBertConfig"),
         ("imagegpt", "ImageGPTConfig"),
         ("informer", "InformerConfig"),
+        ("instructblip", "InstructBlipConfig"),
         ("jukebox", "JukeboxConfig"),
         ("layoutlm", "LayoutLMConfig"),
         ("layoutlmv2", "LayoutLMv2Config"),
@@ -138,6 +139,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("mobilevitv2", "MobileViTV2Config"),
         ("mpnet", "MPNetConfig"),
         ("mt5", "MT5Config"),
+        ("musicgen", "MusicgenConfig"),
         ("mvp", "MvpConfig"),
         ("nat", "NatConfig"),
         ("nezha", "NezhaConfig"),
@@ -193,6 +195,7 @@ CONFIG_MAPPING_NAMES = OrderedDict(
         ("transfo-xl", "TransfoXLConfig"),
         ("trocr", "TrOCRConfig"),
         ("tvlt", "TvltConfig"),
+        ("umt5", "UMT5Config"),
         ("unispeech", "UniSpeechConfig"),
         ("unispeech-sat", "UniSpeechSatConfig"),
         ("upernet", "UperNetConfig"),
@@ -301,6 +304,7 @@ CONFIG_ARCHIVE_MAP_MAPPING_NAMES = OrderedDict(
         ("ibert", "IBERT_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("imagegpt", "IMAGEGPT_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("informer", "INFORMER_PRETRAINED_CONFIG_ARCHIVE_MAP"),
+        ("instructblip", "INSTRUCTBLIP_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("jukebox", "JUKEBOX_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("layoutlm", "LAYOUTLM_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("layoutlmv2", "LAYOUTLMV2_PRETRAINED_CONFIG_ARCHIVE_MAP"),
@@ -327,6 +331,7 @@ CONFIG_ARCHIVE_MAP_MAPPING_NAMES = OrderedDict(
         ("mobilevit", "MOBILEVIT_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("mobilevitv2", "MOBILEVITV2_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("mpnet", "MPNET_PRETRAINED_CONFIG_ARCHIVE_MAP"),
+        ("musicgen", "MUSICGEN_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("mvp", "MVP_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("nat", "NAT_PRETRAINED_CONFIG_ARCHIVE_MAP"),
         ("nezha", "NEZHA_PRETRAINED_CONFIG_ARCHIVE_MAP"),
@@ -496,6 +501,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("ibert", "I-BERT"),
         ("imagegpt", "ImageGPT"),
         ("informer", "Informer"),
+        ("instructblip", "InstructBLIP"),
         ("jukebox", "Jukebox"),
         ("layoutlm", "LayoutLM"),
         ("layoutlmv2", "LayoutLMv2"),
@@ -532,6 +538,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("mobilevitv2", "MobileViTV2"),
         ("mpnet", "MPNet"),
         ("mt5", "MT5"),
+        ("musicgen", "MusicGen"),
         ("mvp", "MVP"),
         ("nat", "NAT"),
         ("nezha", "Nezha"),
@@ -592,6 +599,7 @@ MODEL_NAMES_MAPPING = OrderedDict(
         ("trocr", "TrOCR"),
         ("tvlt", "TVLT"),
         ("ul2", "UL2"),
+        ("umt5", "UMT5"),
         ("unispeech", "UniSpeech"),
         ("unispeech-sat", "UniSpeechSat"),
         ("upernet", "UPerNet"),
@@ -702,11 +710,11 @@ class _LazyConfigMapping(OrderedDict):
     def __contains__(self, item):
         return item in self._mapping or item in self._extra_content
 
-    def register(self, key, value):
+    def register(self, key, value, exist_ok=False):
         """
         Register a new configuration in this mapping.
         """
-        if key in self._mapping.keys():
+        if key in self._mapping.keys() and not exist_ok:
             raise ValueError(f"'{key}' is already used by a Transformers config, pick another name.")
         self._extra_content[key] = value
 
